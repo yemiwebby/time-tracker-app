@@ -5,7 +5,7 @@
             <div class="row">
                 <div class="col-sm-12">
                     <h2 class="pull-left project-title">Projects</h2>
-                    <button class="btn btn-primary btn-sm pull-right" data-toggle="modal" data-target="#projectCreate">New Project</button>
+                    <button class="btn btn-default btn-sm pull-right" data-toggle="modal" data-target="#projectCreate">New Project</button>
                 </div>
             </div>
 
@@ -26,13 +26,13 @@
                             <li v-for="timer in project.timers" :key="timer.id" class="list-group-item clearfix">
                                 <strong class="timer-name">{{ timer.name }}</strong>
                                 <div class="pull-right">
-                                        <span v-if="showTimerForProject(project, timer)" style="margin-right: 10px">
+                                        <span v-if="showProjectTimer(project, timer)" style="margin-right: 10px">
                                             <strong>{{ activeTimerString }}</strong>
                                         </span>
                                     <span v-else>
-                                            <strong>{{ calculateTimeSpent(timer) }}</strong>
+                                            <strong>{{ calculateTotalTimeSpent(timer) }}</strong>
                                         </span>
-                                    <button v-if="showTimerForProject(project, timer)" class="btn btn-sm btn-danger" @click="stopTimer()">
+                                    <button v-if="showProjectTimer(project, timer)" class="btn btn-sm btn-danger" @click="stopActiveTimer()">
                                         <i class="glyphicon glyphicon-stop"></i>
                                     </button>
                                 </div>
@@ -58,7 +58,7 @@
                                 </div>
                             </div>
                             <div class="modal-footer">
-                                <button data-dismiss="modal" v-bind:disabled="newTimerName === ''" @click="createTimer(selectedProject)" type="submit" class="btn btn-default btn-primary"><i class="glyphicon glyphicon-play"></i> Start</button>
+                                <button data-dismiss="modal" v-bind:disabled="newTimerName === ''" @click="createTaskTimer(selectedProject)" type="submit" class="btn btn-default btn-success"><i class="glyphicon glyphicon-play"></i> Start</button>
                             </div>
                         </div>
                     </div>
@@ -81,7 +81,7 @@
                             </div>
                         </div>
                         <div class="modal-footer">
-                            <button data-dismiss="modal" v-bind:disabled="newProjectName == ''" @click="createProject" type="submit" class="btn btn-default btn-primary">Create</button>
+                            <button data-dismiss="modal" v-bind:disabled="newProjectName == ''" @click="createNewProject" type="submit" class="btn btn-default btn-success">Create</button>
                         </div>
                     </div>
                 </div>
@@ -111,7 +111,7 @@
                 this.projects = res.data;
                 axios.get('/project/timers/active').then(res => {
                     if (res.data.id !== undefined) {
-                        this.startTimer(res.data.project, res.data)
+                        this.startCountingTimer(res.data.project, res.data)
                     }
                 })
             })
@@ -123,7 +123,8 @@
             _padNumber: number =>  (number > 9 || number === 0) ? number : "0" + number,
 
             /**
-             * Splits seconds into hours, minutes, and seconds.
+             *  created a readable time by splitting seconds into a proper format
+             *  @param(seconds)
              */
             _readableTimeFromSeconds: function(seconds) {
                 const hours = 3600 > seconds ? 0 : parseInt(seconds / 3600, 10)
@@ -135,9 +136,10 @@
             },
 
             /**
-             * Calculate the amount of time spent on the project using the timer object.
+             * The amount of time spent while working on a task.
+             * @param(timer)
              */
-            calculateTimeSpent(timer) {
+            calculateTotalTimeSpent(timer) {
                 if (timer.stoppedAt) {
                     const started = moment(new Date(timer.startedAt.timestamp * 1000), "YYYY/MM/DD HH:mm:ss");
                     const stopped = moment(new Date(timer.stoppedAt.timestamp * 1000), "YYYY/MM/DD HH:mm:ss");
@@ -150,19 +152,19 @@
             },
 
             /**
-             * Determines if there is an active timer and whether it belongs to the project
-             * passed into the function.
+             * Check for active timers for a particular created project.
+             * @param(project,timer)
              */
-            showTimerForProject(project, timer) {
+            showProjectTimer(project, timer) {
                 return this.counter.timer &&
                     this.counter.timer.id === timer.id &&
                     this.counter.timer.project.id === project.id
             },
 
             /**
-             * Start counting the timer. Tick tock.
+             * Activate timer for a task.
              */
-            startTimer(project, timer) {
+            startCountingTimer(project, timer) {
                 const started = moment(timer.startedAt)
 
                 this.counter.timer = timer;
@@ -176,9 +178,9 @@
             },
 
             /**
-             * Stop the timer from the API and then from the local counter.
+             * Stop the timer for a particular task.
              */
-            stopTimer() {
+            stopActiveTimer() {
                 axios.post(`/projects/${this.counter.timer.id}/timers/stop`)
                     .then(res => {
                         // Loop through and get the right project...
@@ -202,13 +204,13 @@
             },
 
             /**
-             * Create a new timer.
+             * Create a new timer for a particular task.
              */
-            createTimer(project) {
+            createTaskTimer(project) {
                 axios.post(`/projects/${project.id}/timers`, {name: this.newTimerName})
                     .then(res => {
                         project.timers.push(res.data);
-                        this.startTimer(res.data.project, res.data)
+                        this.startCountingTimer(res.data.project, res.data)
                     });
 
                 this.newTimerName = ''
@@ -217,7 +219,7 @@
             /**
              * Create a new project.
              */
-            createProject() {
+            createNewProject() {
                 axios.post('/projects/create', {name: this.newProjectName})
                     .then(res => {
                         this.projects.push(res.data)
